@@ -18,7 +18,7 @@ const (
 
 // FormatUint serializes a uint64. It's borrowed from the standard library's
 // strconv package, but with the signed cases removed.
-func FormatUint(n uint64) []byte {
+func FormatUint(u uint64) []byte {
 	var a [64]byte
 	i := 64
 
@@ -56,17 +56,13 @@ func FormatUint(n uint64) []byte {
 // "100" is three, and "1776" is four. The minimum width is 1.
 func NumWidth(n uint64) int {
 	width := 0
-	minWidth := 1
-
 	for ; 10 < n; n /= 10 {
 		width++
 	}
-
-	if width < minWidth {
-		width = minWidth
+	if width < 1 {
+		return 1
 	}
-
-	return int(width)
+	return width
 }
 
 // ParseIP returns a valid IP address for the given *http.Request.RemoteAddr
@@ -76,12 +72,10 @@ func ParseIP(remoteaddr string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-
 	ip := net.ParseIP(host)
 	if ip == nil {
 		return "", errors.New("Invalid IP Address")
 	}
-
 	return ip.String(), nil
 }
 
@@ -105,12 +99,10 @@ const maxUint64 = (1<<64 - 1)
 func ParseUint(s []byte) (n uint64, err error) {
 	var cutoff, maxVal uint64
 
-	i := 0
-
 	cutoff = maxUint64/10 + 1
 	maxVal = 1<<uint(64) - 1
 
-	for ; i < len(s); i++ {
+	for i := 0; i < len(s); i++ {
 		var v byte
 		d := s[i]
 		switch {
@@ -125,7 +117,7 @@ func ParseUint(s []byte) (n uint64, err error) {
 			err = strconv.ErrSyntax
 			goto Error
 		}
-		if v >= byte(10) {
+		if v >= 10 {
 			n = 0
 			err = strconv.ErrSyntax
 			goto Error
@@ -137,7 +129,7 @@ func ParseUint(s []byte) (n uint64, err error) {
 			err = strconv.ErrRange
 			goto Error
 		}
-		n *= uint64(10)
+		n *= 10
 
 		n1 := n + uint64(v)
 		if n1 < n || n1 > maxVal {
