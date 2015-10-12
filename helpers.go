@@ -19,31 +19,34 @@ const (
 // FormatUint serializes a uint64. It's borrowed from the standard library's
 // strconv package, but with the signed cases removed.
 func FormatUint(n uint64) []byte {
-	u := uint64(n)
 	var a [64]byte
-	i := len(a)
+	i := 64
 
-	// common case: use constants for / and % because
-	// the compiler can optimize it into a multiply+shift,
-	// and unroll loop
-	for u >= 100 {
-		i -= 2
-		q := u / 100
-		j := uintptr(u - q*100)
-		a[i+1] = digits01[j]
-		a[i+0] = digits10[j]
-		u = q
+	if ^uintptr(0)>>32 == 0 {
+		for u > uint64(^uintptr(0)) {
+			q := u / 1e9
+			us := uintptr(u - q*1e9) // us % 1e9 fits into a uintptr
+			for j := 9; j > 0; j-- {
+				i--
+				qs := us / 10
+				a[i] = byte(us - qs*10 + '0')
+				us = qs
+			}
+			u = q
+		}
 	}
-	if u >= 10 {
+
+	// u guaranteed to fit into a uintptr
+	us := uintptr(u)
+	for us >= 10 {
 		i--
-		q := u / 10
-		a[i] = digits[uintptr(u-q*10)]
-		u = q
+		q := us / 10
+		a[i] = byte(us - q*10 + '0')
+		us = q
 	}
-
-	// u < base
+	// u < 10
 	i--
-	a[i] = digits[uintptr(u)]
+	a[i] = byte(us + '0')
 
 	return a[i:]
 }
