@@ -19,6 +19,11 @@ const (
 // FormatUint serializes a uint64. It's borrowed from the standard library's
 // strconv package, but with the signed cases removed.
 func FormatUint(u uint64) []byte {
+	// Special case.
+	if u <= 9 {
+		return []byte{u + '0'}
+	}
+
 	var a [64]byte
 	i := 64
 
