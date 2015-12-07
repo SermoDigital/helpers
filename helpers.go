@@ -21,7 +21,7 @@ const (
 func FormatUint(u uint64) []byte {
 	// Special case.
 	if u <= 9 {
-		return []byte{u + '0'}
+		return []byte{byte(u) + '0'}
 	}
 
 	var a [64]byte
