@@ -17,7 +17,9 @@ const (
 )
 
 // FormatUint serializes a uint64. It's borrowed from the standard library's
-// strconv package, but with the signed cases removed.
+// strconv package, but with the signed cases removed and only formats in base
+// 10. If the return value is being converted to a string using strconv
+// directly might be faster.
 func FormatUint(u uint64) []byte {
 	// Special case.
 	if u <= 9 {
@@ -56,18 +58,71 @@ func FormatUint(u uint64) []byte {
 	return a[i:]
 }
 
-// NumWidth finds the printed width of a number. I.e., the amount of
-// characters the number will take on-screen. For example, "12" is two,
-// "100" is three, and "1776" is four. The minimum width is 1.
-func NumWidth(n uint64) int {
-	width := 0
-	for ; 10 < n; n /= 10 {
-		width++
-	}
-	if width < 1 {
+// Length finds the number of digits in a uint64. For example, 12 returns 2,
+// 100 returns 3, and 1776 returns 4. The minimum width is 1.
+func Length(x uint64) int {
+	// Loop: for loop
+	// Log10: math.Log10
+	// Asm: https://graphics.stanford.edu/~seander/bithacks.html#IntegerLog10
+	// 	with "IntegerLogBase2(v)" in assembly implemented similar to GCC's
+	// 	__builtin_clzll.
+	// Cond: the switch below
+	//
+	// 	Seq: sequential numbers
+	// 	Rand: random numbers
+	//
+	// BenchmarkIntLenLoopSeq-4     	200000000         7.87 ns/op
+	// BenchmarkIntLenLog10Seq-4    	30000000        43.8 ns/op
+	// BenchmarkIntLenAsmSeq-4      	200000000         7.38 ns/op
+	// BenchmarkIntLenCondSeq-4     	500000000         3.67 ns/op
+	//
+	// BenchmarkIntLenLoopRand-4    	10000000000000000000        21.8 ns/op
+	// BenchmarkIntLenLog10Rand-4   	30000000        44.5 ns/op
+	// BenchmarkIntLenAsmRand-4     	200000000         8.62 ns/op
+	// BenchmarkIntLenCondRand-4    	200000000         8.09 ns/op
+
+	switch {
+	case x < 10:
 		return 1
+	case x < 100:
+		return 2
+	case x < 1000:
+		return 3
+	case x < 10000:
+		return 4
+	case x < 100000:
+		return 5
+	case x < 1000000:
+		return 6
+	case x < 10000000:
+		return 7
+	case x < 100000000:
+		return 8
+	case x < 1000000000:
+		return 9
+	case x < 10000000000:
+		return 10
+	case x < 100000000000:
+		return 11
+	case x < 1000000000000:
+		return 12
+	case x < 10000000000000:
+		return 13
+	case x < 100000000000000:
+		return 14
+	case x < 1000000000000000:
+		return 15
+	case x < 10000000000000000:
+		return 16
+	case x < 100000000000000000:
+		return 17
+	case x < 1000000000000000000:
+		return 18
+	case x < 10000000000000000000:
+		return 19
+	default:
+		panic("unreachable")
 	}
-	return width
 }
 
 // ParseIP returns a valid IP address for the given *http.Request.RemoteAddr
@@ -84,24 +139,10 @@ func ParseIP(remoteaddr string) (string, error) {
 	return ip.String(), nil
 }
 
-// Glob returns a glob for redis in order to find specific key/value pairs.
-// Prefix should be the key type prefix (e.g., "__sid") and match should be
-// the match you're looking for (e.g., "eric@sermodigital.com").
-// Do not include the colon delimiter in the match, but _do_ in the prefix.
-// (Technically the prefix _should_ include the delimiter.)
-func Glob(prefix, match string) string {
-	buf := make([]byte, len(prefix)+len(match)+2)
-	n := copy(buf, prefix)
-	n += copy(buf[n:], match)
-	copy(buf[n:], ":*")
-	return string(buf)
-}
-
-const maxUint64 = (1<<64 - 1)
-
-// ParseUint is like ParseInt but for unsigned numbers. It's stolen from
-// the strconv package and streamlined for uint64s.
+// ParseUint is like ParseInt but for unsigned numbers. It's stolen from the
+// strconv package and streamlined for uint64s.
 func ParseUint(s []byte) (n uint64, err error) {
+	const maxUint64 = (1<<64 - 1)
 	var cutoff, maxVal uint64
 
 	cutoff = maxUint64/10 + 1
