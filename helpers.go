@@ -7,60 +7,13 @@ package helpers
 import (
 	"errors"
 	"net"
-	"strconv"
 )
-
-const (
-	digits   = "0123456789abcdefghijklmnopqrstuvwxyz"
-	digits01 = "0123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789"
-	digits10 = "0000000000111111111122222222223333333333444444444455555555556666666666777777777788888888889999999999"
-)
-
-// FormatUint serializes a uint64. It's borrowed from the standard library's
-// strconv package, but with the signed cases removed and only formats in base
-// 10. If the return value is being converted to a string using strconv
-// directly might be faster.
-func FormatUint(u uint64) []byte {
-	// Special case.
-	if u <= 9 {
-		return []byte{byte(u) + '0'}
-	}
-
-	var a [64]byte
-	i := 64
-
-	if ^uintptr(0)>>32 == 0 {
-		for u > uint64(^uintptr(0)) {
-			q := u / 1e9
-			us := uintptr(u - q*1e9) // us % 1e9 fits into a uintptr
-			for j := 9; j > 0; j-- {
-				i--
-				qs := us / 10
-				a[i] = byte(us - qs*10 + '0')
-				us = qs
-			}
-			u = q
-		}
-	}
-
-	// u guaranteed to fit into a uintptr
-	us := uintptr(u)
-	for us >= 10 {
-		i--
-		q := us / 10
-		a[i] = byte(us - q*10 + '0')
-		us = q
-	}
-	// u < 10
-	i--
-	a[i] = byte(us + '0')
-
-	return a[i:]
-}
 
 // Length finds the number of digits in a uint64. For example, 12 returns 2,
 // 100 returns 3, and 1776 returns 4. The minimum width is 1.
 func Length(x uint64) int {
+	// TODO: use math/bits when it's merged in 1.9
+
 	// Loop: for loop
 	// Log10: math.Log10
 	// Asm: https://graphics.stanford.edu/~seander/bithacks.html#IntegerLog10
@@ -137,58 +90,4 @@ func ParseIP(remoteaddr string) (string, error) {
 		return "", errors.New("Invalid IP Address")
 	}
 	return ip.String(), nil
-}
-
-// ParseUint is like ParseInt but for unsigned numbers. It's stolen from the
-// strconv package and streamlined for uint64s.
-func ParseUint(s []byte) (n uint64, err error) {
-	const maxUint64 = (1<<64 - 1)
-	var cutoff, maxVal uint64
-
-	cutoff = maxUint64/10 + 1
-	maxVal = 1<<uint(64) - 1
-
-	for i := 0; i < len(s); i++ {
-		var v byte
-		d := s[i]
-		switch {
-		case '0' <= d && d <= '9':
-			v = d - '0'
-		case 'a' <= d && d <= 'z':
-			v = d - 'a' + 10
-		case 'A' <= d && d <= 'Z':
-			v = d - 'A' + 10
-		default:
-			n = 0
-			err = strconv.ErrSyntax
-			goto Error
-		}
-		if v >= 10 {
-			n = 0
-			err = strconv.ErrSyntax
-			goto Error
-		}
-
-		if n >= cutoff {
-			// n*base overflows
-			n = maxUint64
-			err = strconv.ErrRange
-			goto Error
-		}
-		n *= 10
-
-		n1 := n + uint64(v)
-		if n1 < n || n1 > maxVal {
-			// n+v overflows
-			n = maxUint64
-			err = strconv.ErrRange
-			goto Error
-		}
-		n = n1
-	}
-
-	return n, nil
-
-Error:
-	return n, &strconv.NumError{Func: "ParseUint", Num: string(s), Err: err}
 }
